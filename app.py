@@ -4,6 +4,7 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+import tempfile
 import time
 
 app = Flask(__name__)
@@ -22,7 +23,8 @@ def crear_nota():
     options.add_argument("--window-size=1200x900")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--no-sandbox")
-    options.add_argument("--user-data-dir=/tmp/chrome")  # ← solución a session conflict
+    user_data_dir = tempfile.mkdtemp()
+    options.add_argument(f"--user-data-dir={user_data_dir}")
 
     try:
         driver = webdriver.Chrome(options=options)
@@ -71,4 +73,3 @@ def crear_nota():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
-
