@@ -2,6 +2,8 @@ from flask import Flask, request, jsonify
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import time
 
 app = Flask(__name__)
@@ -16,7 +18,8 @@ def crear_nota():
         return jsonify({"error": "Faltan ID o NOTA"}), 400
 
     options = Options()
-    options.add_argument("--headless")
+    # options.add_argument("--headless")  # Comentar para ver el navegador
+    options.add_argument("--window-size=1200x900")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--no-sandbox")
 
@@ -25,22 +28,35 @@ def crear_nota():
         driver.get("https://www.mycase.com/login/")
         time.sleep(2)
 
+        # Login
         driver.find_element(By.ID, "login_session_email").send_keys("dagarcia@mendozafirm.com")
         driver.find_element(By.ID, "login_session_password").send_keys("Left4dead2")
         driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
 
-        time.sleep(5)  # Espera para que cargue la verificación 2FA
+        time.sleep(5)  # Espera para redirección
 
-        # Espera hasta que el usuario manualmente introduzca el código
-        print("Esperando que ingreses el código 2FA en el navegador... (30s)")
-        time.sleep(30)
+        # Verificar si se llegó al dashboard
+        current_url = driver.current_url
+        if "dashboard" in current_url:
+            print("✅ Login exitoso. Ya estamos en el dashboard.")
+        else:
+            print(f"⚠️ No se llegó al dashboard. Página actual: {current_url}")
+            return jsonify({"error": "No se llegó al dashboard", "pagina_actual": current_url}), 403
 
-        # Ir al dashboard y luego al cliente
+        # Ir a página del cliente y abrir notas
         driver.get(f"https://the-mendoza-law-firm.mycase.com/court_cases/{cliente_id}/notes")
         time.sleep(3)
 
-        # Crear nota (estos selectores deben ajustarse a lo que ves en pantalla)
-        driver.find_element(By.LINK_TEXT, "New Note").click()
+        # Buscar y hacer clic en el botón de nueva nota
+        try:
+            new_note_button = WebDriverWait(driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//a[contains(., 'Add a Note')]"))
+            )
+            new_note_button.click()
+        except Exception as e:
+            driver.quit()
+            return jsonify({"error": f"No se encontró el botón para nueva nota: {str(e)}"}), 500
+
         time.sleep(2)
         driver.find_element(By.NAME, "note[body]").send_keys(nota_texto)
         driver.find_element(By.NAME, "commit").click()
