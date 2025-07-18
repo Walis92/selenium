@@ -18,10 +18,11 @@ def crear_nota():
         return jsonify({"error": "Faltan ID o NOTA"}), 400
 
     options = Options()
-    # options.add_argument("--headless")  # Comentar para ver el navegador
+    # options.add_argument("--headless")  # Descomenta para modo oculto
     options.add_argument("--window-size=1200x900")
     options.add_argument("--disable-dev-shm-usage")
     options.add_argument("--no-sandbox")
+    options.add_argument("--user-data-dir=/tmp/chrome")  # ← solución a session conflict
 
     try:
         driver = webdriver.Chrome(options=options)
@@ -33,24 +34,22 @@ def crear_nota():
         driver.find_element(By.ID, "login_session_password").send_keys("Left4dead2")
         driver.find_element(By.CSS_SELECTOR, "button[type='submit']").click()
 
-        time.sleep(5)  # Espera para redirección
+        time.sleep(5)
 
-        # Verificar si se llegó al dashboard
         current_url = driver.current_url
         if "dashboard" in current_url:
             print("✅ Login exitoso. Ya estamos en el dashboard.")
         else:
             print(f"⚠️ No se llegó al dashboard. Página actual: {current_url}")
+            driver.quit()
             return jsonify({"error": "No se llegó al dashboard", "pagina_actual": current_url}), 403
 
-        # Ir a página del cliente y abrir notas
         driver.get(f"https://the-mendoza-law-firm.mycase.com/court_cases/{cliente_id}/notes")
         time.sleep(3)
 
-        # Buscar y hacer clic en el botón de nueva nota
         try:
             new_note_button = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "//a[contains(., 'Add a Note')]"))
+                EC.element_to_be_clickable((By.XPATH, "//a[contains(., 'New Note')]"))
             )
             new_note_button.click()
         except Exception as e:
@@ -66,8 +65,10 @@ def crear_nota():
         return jsonify({"status": "Nota creada con éxito", "cliente_id": cliente_id}), 200
 
     except Exception as e:
-        driver.quit()
+        if 'driver' in locals():
+            driver.quit()
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
